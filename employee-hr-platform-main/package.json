@@ -1,0 +1,17 @@
+{
+  "name": "employee-hr-platform",
+  "version": "1.0.0",
+  "description": "Modern Employee HR Platform with PashuCare-inspired design",
+  "main": "index.js",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm start",
+    "install-frontend": "cd frontend && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Algoraver22/employee-hr-platform.git"
+  },
+  "author": "Anurag Chaturvedi",
+  "license": "MIT"
+}
