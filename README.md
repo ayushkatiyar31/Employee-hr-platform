@@ -36,8 +36,7 @@
 
 #### 1. Clone the Repository
 
-git clone https://[github.com/Algoraver22/employee-hr-platform.git](https://github.com/ayushkatiyar31/Employee-hr-platform)
-cd employee-hr-platform
+git clone https://github.com/ayushkatiyar31/Employee-hr-platform
 
 #### 2. Install Dependencies
 
