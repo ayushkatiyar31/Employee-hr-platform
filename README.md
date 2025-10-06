@@ -36,7 +36,7 @@
 
 #### 1. Clone the Repository
 
-git clone https://github.com/Algoraver22/employee-hr-platform.git
+git clone https://[github.com/Algoraver22/employee-hr-platform.git](https://github.com/ayushkatiyar31/Employee-hr-platform)
 cd employee-hr-platform
 
 #### 2. Install Dependencies
@@ -55,7 +55,7 @@ npm start
 
 ---
 ### 🧑‍💻 Author
- Crafted with ☕, logic, and code by Anurag Chaturvedi
+ Crafted with ☕, logic, and code by Ayush Katiyar.
 
 ---
 📜 License
