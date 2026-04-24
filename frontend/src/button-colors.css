@@ -1,0 +1,20 @@
+/* Colored buttons */
+.quick-action-btn:nth-child(1) {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.quick-action-btn:nth-child(2) {
+  background-color: #10b981 !important;
+  color: white !important;
+}
+
+.quick-action-btn:nth-child(3) {
+  background-color: #f59e0b !important;
+  color: white !important;
+}
+
+.quick-action-btn:nth-child(4) {
+  background-color: #8b5cf6 !important;
+  color: white !important;
+}
