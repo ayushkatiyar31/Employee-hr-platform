@@ -4,6 +4,7 @@
 @import './button-colors.css';
 @import './particles.css';
 @import './professional-styles.css';
+@import './workspace-ui.css';
 .fade-in-error {
   animation: fadeIn 0.5s ease-in-out;
   color: red;

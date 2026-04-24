@@ -20,7 +20,7 @@ const EmployeeManagementApp = () => {
     const [showModal, setShowModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
-    const [currentPage, setCurrentPage] = useState('home');
+    const [currentPage, setCurrentPage] = useState('dashboard');
     const [loading, setLoading] = useState(false);
     const [pageTransition, setPageTransition] = useState(false);
     const [employeeObj, setEmployeeObj] = useState(null)
@@ -219,16 +219,16 @@ const EmployeeManagementApp = () => {
     };
     
     return (
-        <div style={{ minHeight: '100vh', background: '#2d3748' }}>
+        <div className="workspace-shell">
             <Header onNavigate={handleNavigation} currentPage={currentPage} onAddEmployee={handleAddEmployeeFromHeader} user={JSON.parse(localStorage.getItem('user') || '{}')} />
-            
-            <div style={{ position: 'fixed', top: '70px', left: 0, right: 0, bottom: 0, background: '#2d3748' }}>
-                <div style={{ width: '100%', height: '100%', padding: '0px 20px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+
+            <div className="workspace-main">
+                <div style={{ width: '100%', minHeight: 'calc(100vh - 110px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ flex: 1, overflow: 'visible' }}>
                         {renderContent()}
                     </div>
                 </div>
-                
+
                 <ToastContainer
                     position='top-right'
                     autoClose={4000}
@@ -236,7 +236,7 @@ const EmployeeManagementApp = () => {
                     theme='colored'
                 />
             </div>
-            
+
             <AddEmployee
                 fetchEmployees={fetchEmployees}
                 showModal={showModal}

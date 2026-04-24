@@ -39,9 +39,25 @@ export const AuthProvider = ({ children }) => {
     });
 
     useEffect(() => {
-        // Force clear to show ProfileSetup
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('token');
+
+        if (storedUser && storedToken) {
+            try {
+                dispatch({
+                    type: 'LOGIN',
+                    payload: {
+                        user: JSON.parse(storedUser),
+                        token: storedToken
+                    }
+                });
+                return;
+            } catch (error) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+            }
+        }
+
         dispatch({ type: 'SET_LOADING', payload: false });
     }, []);
 

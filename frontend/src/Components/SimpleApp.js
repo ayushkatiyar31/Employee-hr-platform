@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import ProfileSetup from './ProfileSetup';
 import EmployeeManagementApp from './EmployeeManagementApp';
+import EmployeeSelfServiceApp from './EmployeeSelfServiceApp';
 import ErrorBoundary from './ErrorBoundary';
 import { useAuth } from './AuthContext';
 
@@ -27,9 +28,16 @@ const SimpleApp = () => {
         );
     }
 
+    const normalizedRole = (user.role || '').toLowerCase();
+    const isEmployee = normalizedRole === 'employee';
+
     return (
         <ErrorBoundary>
-            <EmployeeManagementApp user={user} onLogout={logout} />
+            {isEmployee ? (
+                <EmployeeSelfServiceApp user={user} onLogout={logout} />
+            ) : (
+                <EmployeeManagementApp user={user} onLogout={logout} />
+            )}
         </ErrorBoundary>
     );
 };
