@@ -1,19 +1,41 @@
-const { createEmployee,
+const router = require('express').Router();
+const {
+    createEmployee,
     getAllEmployees,
     getEmployeeById,
+    updateEmployeeById,
     deleteEmployeeById,
-    updateEmployeeById
+    getMyProfile,
+    updateMyProfile
 } = require('../Controllers/EmployeeController');
 const { cloudinaryFileUploader } = require('../Middlewares/FileUplaoder');
 const { auth, authorize } = require('../Middlewares/auth');
-const { cacheMiddleware } = require('../Middlewares/cache');
 
-const router = require('express').Router();
+router.get('/me/profile', auth, authorize('employee'), getMyProfile);
+router.put('/me/profile', auth, authorize('employee'), updateMyProfile);
 
-router.get('/', cacheMiddleware(2 * 60 * 1000), getAllEmployees)
-router.get('/:id', cacheMiddleware(5 * 60 * 1000), getEmployeeById)
-router.delete('/:id', deleteEmployeeById)
-router.put('/:id', cloudinaryFileUploader.single('profileImage'), updateEmployeeById)
-router.post('/', cloudinaryFileUploader.single('profileImage'), createEmployee);
+router.get('/', auth, authorize('admin', 'hr', 'manager'), getAllEmployees);
+router.get('/:id', auth, authorize('admin', 'hr', 'manager'), getEmployeeById);
+router.post(
+    '/',
+    auth,
+    authorize('admin', 'hr', 'manager'),
+    cloudinaryFileUploader.fields([
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'documents', maxCount: 5 }
+    ]),
+    createEmployee
+);
+router.put(
+    '/:id',
+    auth,
+    authorize('admin', 'hr', 'manager'),
+    cloudinaryFileUploader.fields([
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'documents', maxCount: 5 }
+    ]),
+    updateEmployeeById
+);
+router.delete('/:id', auth, authorize('admin', 'hr', 'manager'), deleteEmployeeById);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { authApi } from '../api';
 
 const AuthContext = createContext();
 
@@ -42,23 +43,30 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
         const storedToken = localStorage.getItem('token');
 
-        if (storedUser && storedToken) {
-            try {
-                dispatch({
-                    type: 'LOGIN',
-                    payload: {
-                        user: JSON.parse(storedUser),
-                        token: storedToken
-                    }
-                });
-                return;
-            } catch (error) {
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
+        const bootstrapAuth = async () => {
+            if (storedUser && storedToken) {
+                try {
+                    JSON.parse(storedUser);
+                    const response = await authApi.me();
+                    localStorage.setItem('user', JSON.stringify(response.data));
+                    dispatch({
+                        type: 'LOGIN',
+                        payload: {
+                            user: response.data,
+                            token: storedToken
+                        }
+                    });
+                    return;
+                } catch (error) {
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('token');
+                }
             }
-        }
 
-        dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_LOADING', payload: false });
+        };
+
+        bootstrapAuth();
     }, []);
 
     const login = (user, token) => {

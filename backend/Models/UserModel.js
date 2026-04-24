@@ -21,12 +21,20 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['admin', 'hr', 'employee'],
+        enum: ['admin', 'hr', 'manager', 'employee'],
         default: 'employee'
     },
     isActive: {
         type: Boolean,
         default: true
+    },
+    avatar: {
+        type: String,
+        default: ''
+    },
+    company: {
+        type: String,
+        default: 'EmployeeHR'
     }
 }, {
     timestamps: true

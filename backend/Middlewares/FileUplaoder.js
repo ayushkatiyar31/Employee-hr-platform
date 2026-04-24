@@ -1,6 +1,7 @@
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
+const path = require('path');
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
@@ -10,11 +11,17 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-        folder: 'uploads',
-        format: async (req, file) => 'png', // supports promises as well
-        public_id: (req, file) => file.originalname.split('.')[0] + ""
-    },
+    params: async (req, file) => {
+        const extension = path.extname(file.originalname || '').replace('.', '');
+        const baseName = path.basename(file.originalname || 'file', path.extname(file.originalname || ''));
+
+        return {
+            folder: file.fieldname === 'documents' ? 'employee-documents' : 'employee-profiles',
+            resource_type: 'auto',
+            format: extension || undefined,
+            public_id: `${baseName}-${Date.now()}`
+        };
+    }
 });
 
 const cloudinaryFileUploader = multer({ storage: storage });
@@ -22,4 +29,3 @@ const cloudinaryFileUploader = multer({ storage: storage });
 module.exports = {
     cloudinaryFileUploader
 }
-

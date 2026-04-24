@@ -3,22 +3,13 @@ const router = express.Router();
 const {
     createLeave,
     getAllLeaves,
-    updateLeaveStatus,
-    deleteLeave
+    updateLeaveStatus
 } = require('../Controllers/LeaveController');
 const { validateLeave } = require('../Middlewares/validation');
 const { auth, authorize } = require('../Middlewares/auth');
 
-// Create leave application
-router.post('/', validateLeave, createLeave);
-
-// Get all leaves with optional filtering
-router.get('/', getAllLeaves);
-
-// Update leave status (approve/reject)
-router.put('/:id/status', updateLeaveStatus);
-
-// Delete leave
-router.delete('/:id', deleteLeave);
+router.post('/', auth, authorize('employee'), validateLeave, createLeave);
+router.get('/', auth, getAllLeaves);
+router.put('/:id/status', auth, authorize('admin'), updateLeaveStatus);
 
 module.exports = router;

@@ -1,20 +1,11 @@
 export const PASSWORD_RULES = [
-  'At least 8 characters',
-  'One uppercase letter',
-  'One lowercase letter',
-  'One number',
-  'One special character'
+  'At least 6 characters'
 ];
 
-export const isStrongPassword = (password = '') =>
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(password);
+export const isStrongPassword = (password = '') => password.length >= 6;
 
 export const getPasswordChecks = (password = '') => [
-  { label: PASSWORD_RULES[0], passed: password.length >= 8 },
-  { label: PASSWORD_RULES[1], passed: /[A-Z]/.test(password) },
-  { label: PASSWORD_RULES[2], passed: /[a-z]/.test(password) },
-  { label: PASSWORD_RULES[3], passed: /\d/.test(password) },
-  { label: PASSWORD_RULES[4], passed: /[^A-Za-z\d]/.test(password) }
+  { label: PASSWORD_RULES[0], passed: password.length >= 6 }
 ];
 
 export const validatePasswordForSignup = (password = '') => {
@@ -23,7 +14,7 @@ export const validatePasswordForSignup = (password = '') => {
   }
 
   if (!isStrongPassword(password)) {
-    return 'Use at least 8 characters with uppercase, lowercase, number, and special character';
+    return 'Use at least 6 characters';
   }
 
   return '';

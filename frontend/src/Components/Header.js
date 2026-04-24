@@ -144,7 +144,7 @@ const Header = ({ onNavigate, currentPage, user }) => {
                         <i className="bi bi-buildings-fill"></i>
                     </div>
                     <div>
-                        <h1 className="workspace-brand-title">PulseHR Workspace</h1>
+                        <h1 className="workspace-brand-title">EmployeeHR Workspace</h1>
                         <p className="workspace-brand-subtitle">A cleaner operations hub for people, leave, and reporting.</p>
                     </div>
                 </div>

@@ -1,27 +1,15 @@
 const mongoose = require('mongoose');
-const User = require('../Models/UserModel');
 require('dotenv').config();
+const ensureDefaultAdmin = require('../utils/ensureDefaultAdmin');
 
 const createAdmin = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        
-        const existingAdmin = await User.findOne({ email: 'admin@company.com' });
-        if (existingAdmin) {
-            console.log('Admin user already exists');
-            return;
-        }
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/employee_hr_platform');
+        await ensureDefaultAdmin();
 
-        const admin = await User.create({
-            name: 'System Admin',
-            email: 'admin@company.com',
-            password: 'admin123',
-            role: 'admin'
-        });
-
-        console.log('Admin user created successfully:');
-        console.log('Email: admin@company.com');
-        console.log('Password: admin123');
+        console.log('Default admin is ready:');
+        console.log(`Email: ${process.env.DEFAULT_ADMIN_EMAIL || 'admin@company.com'}`);
+        console.log(`Password: ${process.env.DEFAULT_ADMIN_PASSWORD || 'admin123'}`);
         
     } catch (error) {
         console.error('Error creating admin:', error);

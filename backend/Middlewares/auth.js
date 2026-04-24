@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../Models/UserModel');
+const JWT_SECRET = process.env.JWT_SECRET || 'employeehr-dev-secret';
 
 const auth = async (req, res, next) => {
     try {
@@ -12,7 +13,7 @@ const auth = async (req, res, next) => {
             });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
         const user = await User.findById(decoded.id).select('-password');
         
         if (!user || !user.isActive) {

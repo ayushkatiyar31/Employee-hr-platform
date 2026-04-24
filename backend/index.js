@@ -3,14 +3,26 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 const EmployeeRoutes = require('./Routes/EmployeeRoutes');
 const LeaveRoutes = require('./Routes/LeaveRoutes');
 const AuthRoutes = require('./Routes/AuthRoutes');
+const AttendanceRoutes = require('./Routes/AttendanceRoutes');
+const AnnouncementRoutes = require('./Routes/AnnouncementRoutes');
+const PayrollRoutes = require('./Routes/PayrollRoutes');
+const DashboardRoutes = require('./Routes/DashboardRoutes');
 const errorHandler = require('./Middlewares/errorHandler');
 const { csrfProtection, getCSRFToken } = require('./Middlewares/csrf');
+const ensureDefaultAdmin = require('./utils/ensureDefaultAdmin');
 
 require('dotenv').config();
 require('./Models/db');
+
+mongoose.connection.once('open', () => {
+    ensureDefaultAdmin().catch((error) => {
+        console.error('Failed to ensure default admin:', error.message);
+    });
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -77,8 +89,12 @@ app.use(bodyParser.json());
 // app.use('/api', csrfProtection);
 
 app.use('/api/auth', AuthRoutes);
+app.use('/api/dashboard', DashboardRoutes);
 app.use('/api/employees', EmployeeRoutes);
+app.use('/api/attendance', AttendanceRoutes);
 app.use('/api/leaves', LeaveRoutes);
+app.use('/api/announcements', AnnouncementRoutes);
+app.use('/api/payrolls', PayrollRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

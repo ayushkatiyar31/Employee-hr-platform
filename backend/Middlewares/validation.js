@@ -22,15 +22,8 @@ const validateRegister = [
     body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password')
-        .isStrongPassword({
-            minLength: 8,
-            minLowercase: 1,
-            minUppercase: 1,
-            minNumbers: 1,
-            minSymbols: 1
-        })
-        .withMessage('Password must be at least 8 characters and include uppercase, lowercase, number, and symbol'),
-    body('role').optional().isIn(['admin', 'hr', 'employee']).withMessage('Invalid role'),
+        .isLength({ min: 6 })
+        .withMessage('Password must be at least 6 characters long'),
     handleValidationErrors
 ];
 
@@ -44,7 +37,6 @@ const validateEmployee = [
 ];
 
 const validateLeave = [
-    body('employeeId').trim().notEmpty().withMessage('Employee name is required'),
     body('leaveType').isIn(['annual', 'sick', 'maternity', 'emergency']).withMessage('Invalid leave type'),
     body('reason').trim().isLength({ min: 10, max: 300 }).withMessage('Reason must be between 10 and 300 characters'),
     body('startDate').isISO8601().withMessage('Valid start date is required'),
