@@ -7,7 +7,7 @@ const createLeave = async (req, res) => {
         // Calculate days
         const start = new Date(startDate);
         const end = new Date(endDate);
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
         
         const leave = new LeaveModel({
             employeeId,

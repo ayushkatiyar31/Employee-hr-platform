@@ -6,10 +6,11 @@ const {
     updateLeaveStatus,
     deleteLeave
 } = require('../Controllers/LeaveController');
+const { validateLeave } = require('../Middlewares/validation');
 const { auth, authorize } = require('../Middlewares/auth');
 
 // Create leave application
-router.post('/', createLeave);
+router.post('/', validateLeave, createLeave);
 
 // Get all leaves with optional filtering
 router.get('/', getAllLeaves);

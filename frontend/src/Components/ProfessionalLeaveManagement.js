@@ -1,24 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { notify } from '../utils';
+import { addScrollHandler } from '../scrollHandler';
+import { getInclusiveDayCount, validateDateRange } from '../validation';
 import '../scrollbar.css';
 import '../card-effects.css';
-import { addScrollHandler } from '../scrollHandler';
+
+const initialFormState = {
+    employeeId: '',
+    leaveType: 'annual',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    status: 'pending'
+};
+
+const fieldStyle = (hasError) => ({
+    width: '100%',
+    padding: '12px 14px',
+    border: `1px solid ${hasError ? '#dc2626' : '#cbd5e1'}`,
+    borderRadius: '10px',
+    background: '#f8fafc',
+    color: '#0f172a'
+});
+
+const helperStyle = { margin: '6px 0 0', fontSize: '12px', color: '#b91c1c', fontWeight: '600' };
 
 const ProfessionalLeaveManagement = () => {
     const [leaves, setLeaves] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({
-        employeeId: '', leaveType: 'annual', startDate: '', endDate: '', reason: '', status: 'pending'
-    });
+    const [formData, setFormData] = useState(initialFormState);
+    const [errors, setErrors] = useState({});
     const scrollRef = useRef(null);
 
     const leaveTypes = [
-        { value: 'annual', label: 'Annual Leave', icon: '🏖️', color: '#10b981' },
-        { value: 'sick', label: 'Sick Leave', icon: '🏥', color: '#ef4444' },
-        { value: 'maternity', label: 'Maternity Leave', icon: '👶', color: '#8b5cf6' },
-        { value: 'emergency', label: 'Emergency Leave', icon: '🚨', color: '#f59e0b' }
+        { value: 'annual', label: 'Annual Leave', accent: '#0f766e' },
+        { value: 'sick', label: 'Sick Leave', accent: '#dc2626' },
+        { value: 'maternity', label: 'Maternity Leave', accent: '#7c3aed' },
+        { value: 'emergency', label: 'Emergency Leave', accent: '#d97706' }
     ];
 
     useEffect(() => {
@@ -26,284 +46,347 @@ const ProfessionalLeaveManagement = () => {
         if (savedLeaves) {
             try {
                 const parsed = JSON.parse(savedLeaves);
-                if (Array.isArray(parsed)) {
-                    setLeaves(parsed);
-                } else {
-                    setLeaves([]);
-                }
-            } catch (e) {
+                setLeaves(Array.isArray(parsed) ? parsed : []);
+            } catch (error) {
                 setLeaves([]);
             }
-        } else {
-            setLeaves([]);
         }
-        
+
         if (scrollRef.current) {
             addScrollHandler(scrollRef.current);
         }
     }, []);
 
-    const filteredLeaves = leaves.filter(leave => {
-        const matchesSearch = leave.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            leave.reason.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
-        return matchesSearch && matchesStatus;
+    const filteredLeaves = useMemo(() => (
+        leaves.filter((leave) => {
+            const employeeText = leave.employeeId || '';
+            const reasonText = leave.reason || '';
+            const matchesSearch =
+                employeeText.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                reasonText.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        })
+    ), [leaves, searchTerm, statusFilter]);
+
+    const dateError = validateDateRange(formData.startDate, formData.endDate, {
+        allowPastStart: false,
+        maxRangeDays: 60
     });
+
+    const calculatedDays = getInclusiveDayCount(formData.startDate, formData.endDate);
+
+    const resetForm = () => {
+        setFormData(initialFormState);
+        setErrors({});
+    };
+
+    const handleChange = (field, value) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        setErrors((prev) => ({ ...prev, [field]: '', dates: '' }));
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        notify('Submitting leave application...', 'info');
+
+        const nextErrors = {};
+
+        if (!formData.employeeId.trim()) {
+            nextErrors.employeeId = 'Employee name is required';
+        }
+
+        if (formData.reason.trim().length < 10) {
+            nextErrors.reason = 'Reason should be at least 10 characters';
+        }
+
+        if (dateError) {
+            nextErrors.dates = dateError;
+        }
+
+        if (Object.keys(nextErrors).length) {
+            setErrors(nextErrors);
+            notify('Please fix the highlighted leave fields', 'error');
+            return;
+        }
+
         const newLeave = {
             id: Date.now().toString(),
             ...formData,
+            employeeId: formData.employeeId.trim(),
+            reason: formData.reason.trim(),
             appliedDate: new Date().toISOString().split('T')[0],
-            days: calculateDays(formData.startDate, formData.endDate)
+            days: calculatedDays
         };
-        
+
         const updated = [newLeave, ...leaves];
         setLeaves(updated);
         localStorage.setItem('leaves', JSON.stringify(updated));
         setShowModal(false);
-        setFormData({ employeeId: '', leaveType: 'annual', startDate: '', endDate: '', reason: '', status: 'pending' });
+        resetForm();
         notify('Leave application submitted successfully', 'success');
         window.dispatchEvent(new Event('dataUpdated'));
     };
 
-    const calculateDays = (start, end) => {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        const diffTime = Math.abs(endDate - startDate);
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    };
-
     const handleStatusChange = (leaveId, newStatus) => {
-        const updated = leaves.map(leave => 
+        const updated = leaves.map((leave) =>
             leave.id === leaveId ? { ...leave, status: newStatus } : leave
         );
+
         setLeaves(updated);
         localStorage.setItem('leaves', JSON.stringify(updated));
-        
-        // Update employee status to on-leave when leave is approved
+
         if (newStatus === 'approved') {
-            const approvedLeave = updated.find(leave => leave.id === leaveId);
+            const approvedLeave = updated.find((leave) => leave.id === leaveId);
             if (approvedLeave) {
                 const localEmployees = JSON.parse(localStorage.getItem('localEmployees') || '[]');
-                const updatedEmployees = localEmployees.map(emp => 
-                    emp.name.toLowerCase().trim() === approvedLeave.employeeId.toLowerCase().trim() ? { ...emp, status: 'on-leave' } : emp
+                const updatedEmployees = localEmployees.map((emp) =>
+                    emp.name.toLowerCase().trim() === approvedLeave.employeeId.toLowerCase().trim()
+                        ? { ...emp, status: 'on-leave' }
+                        : emp
                 );
                 localStorage.setItem('localEmployees', JSON.stringify(updatedEmployees));
                 notify('Employee status updated to on-leave', 'success');
             }
         }
-        
+
         notify(`Leave ${newStatus} successfully`, 'success');
         window.dispatchEvent(new Event('dataUpdated'));
     };
 
-    const getLeaveTypeInfo = (type) => leaveTypes.find(t => t.value === type) || leaveTypes[0];
+    const removeLeave = (leaveId) => {
+        const updated = leaves.filter((leave) => leave.id !== leaveId);
+        setLeaves(updated);
+        localStorage.setItem('leaves', JSON.stringify(updated));
+        notify('Leave deleted successfully', 'success');
+    };
+
+    const getLeaveTypeInfo = (type) => leaveTypes.find((item) => item.value === type) || leaveTypes[0];
 
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#2d3748', padding: '20px', borderRadius: '12px' }}>
-            <div style={{ background: '#1f2937', padding: '20px', borderRadius: '12px', marginBottom: '16px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+                background: 'linear-gradient(135deg, #0f172a 0%, #134e4a 100%)',
+                borderRadius: '18px',
+                padding: '24px',
+                color: 'white',
+                boxShadow: '0 20px 50px rgba(15, 23, 42, 0.25)'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                     <div>
-                        <h2 style={{ margin: '0 0 8px 0', color: 'white', fontSize: '1.5rem', fontWeight: '700' }}>📅 Leave Management</h2>
-                        <p style={{ margin: 0, color: '#d1d5db' }}>{leaves.length} leave requests</p>
+                        <h2 style={{ margin: '0 0 8px 0', fontSize: '1.6rem' }}>Leave Management</h2>
+                        <p style={{ margin: 0, color: '#bfdbfe' }}>Track requests, validate dates, and keep employee status aligned.</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <input
-                            type="text"
-                            placeholder="Search leaves..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', width: '200px', fontWeight: 'bold' }}
-                        />
-                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                            <option value="all">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                        </select>
-                        <button 
-                            onClick={() => setShowModal(true)} 
-                            style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                            onMouseEnter={(e) => {
-                                e.target.style.transform = 'translateY(-2px)';
-                                e.target.style.boxShadow = '0 8px 20px rgba(16, 185, 129, 0.4)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)';
-                                e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                            }}
-                        >
-                            + Apply Leave
-                        </button>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        style={{
+                            padding: '12px 18px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            background: '#f59e0b',
+                            color: '#111827',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        New Leave Request
+                    </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginTop: '20px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                        <div style={{ color: '#93c5fd', fontSize: '13px' }}>Total Requests</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '700', marginTop: '6px' }}>{leaves.length}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                        <div style={{ color: '#93c5fd', fontSize: '13px' }}>Pending Approval</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '700', marginTop: '6px' }}>{leaves.filter((item) => item.status === 'pending').length}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                        <div style={{ color: '#93c5fd', fontSize: '13px' }}>Approved</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '700', marginTop: '6px' }}>{leaves.filter((item) => item.status === 'approved').length}</div>
                     </div>
                 </div>
             </div>
 
-            <div style={{ flex: 1, background: 'rgba(255,255,255,0.1)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                <div ref={scrollRef} className="auto-hide-scrollbar" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px', padding: '8px', paddingBottom: '150px' }}>
-                    {filteredLeaves.length === 0 ? (
-                        <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '4rem', marginBottom: '20px', opacity: '0.8' }}>📅</div>
-                            <h3 style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '600', margin: '0 0 10px 0', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>No Leave Requests Found</h3>
-                            <p style={{ color: '#e5e7eb', fontSize: '1.1rem', margin: '0', opacity: '0.9' }}>No leave applications have been submitted yet</p>
-                        </div>
-                    ) : (
-                        filteredLeaves.map(leave => {
-                            const typeInfo = getLeaveTypeInfo(leave.leaveType);
-                            return (
-                                <div key={leave.id} className="hover-card" style={{ background: '#374151', borderRadius: '12px', padding: '16px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: typeInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                                                {typeInfo.icon}
+            <div style={{ background: '#ffffff', borderRadius: '18px', padding: '18px', boxShadow: '0 18px 40px rgba(15, 23, 42, 0.08)' }}>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <input
+                        type="text"
+                        placeholder="Search by employee or reason"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ ...fieldStyle(false), maxWidth: '280px' }}
+                    />
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ ...fieldStyle(false), maxWidth: '220px' }}
+                    >
+                        <option value="all">All status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style={{ flex: 1, background: '#f8fafc', borderRadius: '18px', padding: '18px', overflow: 'hidden' }}>
+                <div ref={scrollRef} className="auto-hide-scrollbar" style={{ maxHeight: '520px', overflowY: 'auto' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {filteredLeaves.length === 0 ? (
+                            <div style={{ gridColumn: '1 / -1', padding: '50px 20px', textAlign: 'center', color: '#475569' }}>
+                                <h3 style={{ marginBottom: '8px', color: '#0f172a' }}>No leave requests found</h3>
+                                <p style={{ margin: 0 }}>Try a different search or create a new request.</p>
+                            </div>
+                        ) : (
+                            filteredLeaves.map((leave) => {
+                                const typeInfo = getLeaveTypeInfo(leave.leaveType);
+                                return (
+                                    <div key={leave.id} className="hover-card" style={{ background: '#ffffff', borderRadius: '16px', padding: '18px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
+                                            <div>
+                                                <div style={{ fontWeight: '700', color: '#0f172a' }}>{leave.employeeId}</div>
+                                                <div style={{ color: typeInfo.accent, fontSize: '13px', fontWeight: '700', marginTop: '4px' }}>{typeInfo.label}</div>
+                                            </div>
+                                            <span style={{
+                                                alignSelf: 'flex-start',
+                                                padding: '6px 10px',
+                                                borderRadius: '999px',
+                                                background: leave.status === 'approved' ? '#dcfce7' : leave.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+                                                color: leave.status === 'approved' ? '#166534' : leave.status === 'rejected' ? '#991b1b' : '#92400e',
+                                                fontSize: '12px',
+                                                fontWeight: '700',
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {leave.status}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
+                                            <div>
+                                                <div style={{ color: '#64748b', fontSize: '12px' }}>Start</div>
+                                                <div style={{ color: '#0f172a', fontWeight: '600' }}>{new Date(leave.startDate).toLocaleDateString()}</div>
                                             </div>
                                             <div>
-                                                <h4 style={{ margin: '0 0 4px 0', color: 'white' }}>{leave.employeeId}</h4>
-                                                <p style={{ margin: 0, color: '#d1d5db', fontSize: '14px' }}>{typeInfo.label}</p>
+                                                <div style={{ color: '#64748b', fontSize: '12px' }}>End</div>
+                                                <div style={{ color: '#0f172a', fontWeight: '600' }}>{new Date(leave.endDate).toLocaleDateString()}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#64748b', fontSize: '12px' }}>Days</div>
+                                                <div style={{ color: '#0f172a', fontWeight: '600' }}>{leave.days}</div>
                                             </div>
                                         </div>
-                                        <span style={{ 
-                                            padding: '4px 12px', 
-                                            borderRadius: '20px', 
-                                            fontSize: '12px', 
-                                            fontWeight: '600', 
-                                            textTransform: 'uppercase',
-                                            background: leave.status === 'approved' ? '#dcfce7' : leave.status === 'rejected' ? '#fee2e2' : '#fef3c7',
-                                            color: leave.status === 'approved' ? '#166534' : leave.status === 'rejected' ? '#991b1b' : '#92400e'
-                                        }}>
-                                            {leave.status}
-                                        </span>
-                                    </div>
-                                    
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px', fontSize: '14px' }}>
-                                        <div>
-                                            <div style={{ color: '#d1d5db', fontSize: '12px' }}>Start Date</div>
-                                            <div style={{ fontWeight: '600', color: 'white' }}>{new Date(leave.startDate).toLocaleDateString()}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ color: '#d1d5db', fontSize: '12px' }}>End Date</div>
-                                            <div style={{ fontWeight: '600', color: 'white' }}>{new Date(leave.endDate).toLocaleDateString()}</div>
-                                        </div>
-                                        <div>
-                                            <div style={{ color: '#d1d5db', fontSize: '12px' }}>Duration</div>
-                                            <div style={{ fontWeight: '600', color: 'white' }}>{leave.days} days</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div style={{ marginBottom: '12px' }}>
-                                        <div style={{ color: '#d1d5db', fontSize: '12px', marginBottom: '4px' }}>Reason</div>
-                                        <p style={{ margin: 0, color: 'white', fontSize: '14px' }}>{leave.reason}</p>
-                                    </div>
-                                    
-                                    {leave.status === 'pending' && (
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button 
-                                                onClick={() => handleStatusChange(leave.id, 'approved')}
-                                                style={{ flex: 1, padding: '8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
-                                            >
-                                                ✅ Approve
+
+                                        <p style={{ margin: '0 0 16px 0', color: '#334155', lineHeight: 1.5 }}>{leave.reason}</p>
+
+                                        {leave.status === 'pending' && (
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button onClick={() => handleStatusChange(leave.id, 'approved')} style={{ flex: 1, padding: '10px 12px', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', cursor: 'pointer', fontWeight: '700' }}>
+                                                    Approve
+                                                </button>
+                                                <button onClick={() => handleStatusChange(leave.id, 'rejected')} style={{ flex: 1, padding: '10px 12px', borderRadius: '10px', border: 'none', background: '#ef4444', color: 'white', cursor: 'pointer', fontWeight: '700' }}>
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {leave.status !== 'pending' && (
+                                            <button onClick={() => removeLeave(leave.id)} style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #fecaca', background: '#fff5f5', color: '#b91c1c', cursor: 'pointer', fontWeight: '700' }}>
+                                                Delete Request
                                             </button>
-                                            <button 
-                                                onClick={() => handleStatusChange(leave.id, 'rejected')}
-                                                style={{ flex: 1, padding: '8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
-                                            >
-                                                ❌ Reject
-                                            </button>
-                                        </div>
-                                    )}
-                                    {leave.status === 'rejected' && (
-                                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                            <button 
-                                                onClick={() => {
-                                                    const updated = leaves.filter(l => l.id !== leave.id);
-                                                    setLeaves(updated);
-                                                    localStorage.setItem('leaves', JSON.stringify(updated));
-                                                    notify('Rejected leave deleted', 'success');
-                                                }}
-                                                style={{ padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
-                                            >
-                                                🗑️ Delete
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             </div>
 
             {showModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '500px', maxWidth: '90vw' }}>
-                        <h3 style={{ margin: '0 0 20px 0', color: '#1e293b' }}>Apply for Leave</h3>
-                        <form onSubmit={handleSubmit}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div style={{ width: '100%', maxWidth: '560px', borderRadius: '24px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 30px 80px rgba(15, 23, 42, 0.25)' }}>
+                        <div style={{ padding: '22px 24px', background: 'linear-gradient(135deg, #0f172a 0%, #134e4a 100%)', color: 'white' }}>
+                            <h3 style={{ margin: '0 0 6px 0' }}>Apply for leave</h3>
+                            <p style={{ margin: 0, color: '#bfdbfe' }}>Dates are validated before submission so the request stays clean.</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Employee Name</label>
+                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '700', color: '#0f172a' }}>Employee Name</label>
                                 <input
                                     type="text"
                                     value={formData.employeeId}
-                                    onChange={(e) => setFormData({...formData, employeeId: e.target.value})}
-                                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                                    onChange={(e) => handleChange('employeeId', e.target.value)}
+                                    style={fieldStyle(Boolean(errors.employeeId))}
                                     placeholder="Enter employee name"
                                     required
                                 />
+                                {errors.employeeId && <p style={helperStyle}>{errors.employeeId}</p>}
                             </div>
+
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Leave Type</label>
-                                <select
-                                    value={formData.leaveType}
-                                    onChange={(e) => setFormData({...formData, leaveType: e.target.value})}
-                                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                                >
-                                    {leaveTypes.map(type => (
+                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '700', color: '#0f172a' }}>Leave Type</label>
+                                <select value={formData.leaveType} onChange={(e) => handleChange('leaveType', e.target.value)} style={fieldStyle(false)}>
+                                    {leaveTypes.map((type) => (
                                         <option key={type.value} value={type.value}>{type.label}</option>
                                     ))}
                                 </select>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Start Date</label>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '700', color: '#0f172a' }}>Start Date</label>
                                     <input
                                         type="date"
                                         value={formData.startDate}
-                                        onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                                        style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        onChange={(e) => handleChange('startDate', e.target.value)}
+                                        style={fieldStyle(Boolean(errors.dates))}
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>End Date</label>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: '700', color: '#0f172a' }}>End Date</label>
                                     <input
                                         type="date"
                                         value={formData.endDate}
-                                        onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                                        style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                                        min={formData.startDate || new Date().toISOString().split('T')[0]}
+                                        onChange={(e) => handleChange('endDate', e.target.value)}
+                                        style={fieldStyle(Boolean(errors.dates))}
                                         required
                                     />
                                 </div>
                             </div>
+                            {errors.dates && <p style={{ ...helperStyle, marginBottom: '12px' }}>{errors.dates}</p>}
+                            {!errors.dates && calculatedDays > 0 && (
+                                <p style={{ margin: '8px 0 16px 0', color: '#0f766e', fontWeight: '700', fontSize: '13px' }}>
+                                    Duration: {calculatedDays} day{calculatedDays > 1 ? 's' : ''}
+                                </p>
+                            )}
+
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', fontWeight: '600', color: '#374151' }}>Reason</label>
+                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '700', color: '#0f172a' }}>Reason</label>
                                 <textarea
                                     value={formData.reason}
-                                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', minHeight: '80px', resize: 'vertical' }}
-                                    placeholder="Please provide a reason for your leave request"
+                                    onChange={(e) => handleChange('reason', e.target.value)}
+                                    style={{ ...fieldStyle(Boolean(errors.reason)), minHeight: '100px', resize: 'vertical' }}
+                                    placeholder="Provide a clear reason for the leave request"
                                     required
                                 />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '12px' }}>
+                                    <span style={{ color: errors.reason ? '#b91c1c' : '#64748b' }}>
+                                        {errors.reason || 'At least 10 characters'}
+                                    </span>
+                                    <span style={{ color: '#64748b' }}>{formData.reason.trim().length}/300</span>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 16px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} style={{ padding: '11px 16px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155', cursor: 'pointer', fontWeight: '700' }}>
                                     Cancel
                                 </button>
-                                <button type="submit" style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                                    Submit Application
+                                <button type="submit" style={{ padding: '11px 16px', borderRadius: '10px', border: 'none', background: '#0f766e', color: 'white', cursor: 'pointer', fontWeight: '700' }}>
+                                    Submit Request
                                 </button>
                             </div>
                         </form>

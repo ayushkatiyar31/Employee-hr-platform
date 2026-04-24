@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { notify } from '../utils';
 import { useAuth } from './AuthContext';
+import { getPasswordChecks } from '../validation';
 import '../auth.css';
 
 const Login = () => {
@@ -10,17 +11,38 @@ const Login = () => {
         password: ''
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const passwordChecks = getPasswordChecks(formData.password);
 
     const handleChange = (e) => {
+        const { name, value } = e.target;
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: value
         });
+        setErrors((prev) => ({ ...prev, [name]: '' }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const nextErrors = {};
+
+        if (!formData.email.trim()) {
+            nextErrors.email = 'Email is required';
+        }
+
+        if (!formData.password.trim()) {
+            nextErrors.password = 'Password is required';
+        }
+
+        if (Object.keys(nextErrors).length) {
+            setErrors(nextErrors);
+            return;
+        }
+
         setLoading(true);
+        setErrors({});
 
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/login`, {
@@ -44,6 +66,8 @@ const Login = () => {
                 login(userData, data.data.token);
                 notify('Login successful!', 'success');
             } else {
+                const apiError = data.errors?.[0]?.msg || data.message || 'Login failed';
+                setErrors({ password: apiError });
                 notify(data.message || 'Login failed', 'error');
             }
         } catch (error) {
@@ -75,7 +99,9 @@ const Login = () => {
                             onChange={handleChange}
                             placeholder="Enter your email"
                             required
+                            className={errors.email ? 'input-error' : ''}
                         />
+                        {errors.email && <p className="field-error">{errors.email}</p>}
                     </div>
 
                     <div className="form-group">
@@ -88,7 +114,13 @@ const Login = () => {
                             onChange={handleChange}
                             placeholder="Enter your password"
                             required
+                            className={errors.password ? 'input-error' : ''}
                         />
+                        {errors.password && <p className="field-error">{errors.password}</p>}
+                        <div className="password-hint">
+                            <span>Password guidance</span>
+                            <span>{passwordChecks.filter((item) => item.passed).length}/5 checks</span>
+                        </div>
                     </div>
 
                     <button 

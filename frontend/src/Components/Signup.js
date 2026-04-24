@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { notify } from '../utils';
 import { useAuth } from './AuthContext';
+import { getPasswordChecks, validatePasswordForSignup } from '../validation';
+import '../auth.css';
 
 const Signup = ({ onSwitchToLogin }) => {
     const { login } = useAuth();
@@ -11,23 +13,49 @@ const Signup = ({ onSwitchToLogin }) => {
         confirmPassword: ''
     });
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const passwordChecks = getPasswordChecks(formData.password);
 
     const handleChange = (e) => {
+        const { name, value } = e.target;
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: value
         });
+        setErrors((prev) => ({ ...prev, [name]: '' }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
+        const nextErrors = {};
+        const passwordError = validatePasswordForSignup(formData.password);
+
+        if (!formData.name.trim()) {
+            nextErrors.name = 'Full name is required';
+        }
+
+        if (!formData.email.trim()) {
+            nextErrors.email = 'Email is required';
+        }
+
+        if (passwordError) {
+            nextErrors.password = passwordError;
+        }
+
         if (formData.password !== formData.confirmPassword) {
-            notify('Passwords do not match', 'error');
+            nextErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        if (Object.keys(nextErrors).length) {
+            setErrors(nextErrors);
+            notify('Please fix the highlighted fields', 'error');
             return;
         }
 
         setLoading(true);
+        setErrors({});
 
         try {
             const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/register`, {
@@ -55,6 +83,8 @@ const Signup = ({ onSwitchToLogin }) => {
                 login(userData, data.data.token);
                 notify('Account created successfully!', 'success');
             } else {
+                const apiError = data.errors?.[0]?.msg || data.message || 'Registration failed';
+                setErrors({ password: apiError });
                 notify(data.message || 'Registration failed', 'error');
             }
         } catch (error) {
@@ -86,7 +116,9 @@ const Signup = ({ onSwitchToLogin }) => {
                             onChange={handleChange}
                             placeholder="Enter your full name"
                             required
+                            className={errors.name ? 'input-error' : ''}
                         />
+                        {errors.name && <p className="field-error">{errors.name}</p>}
                     </div>
 
                     <div className="form-group">
@@ -99,7 +131,9 @@ const Signup = ({ onSwitchToLogin }) => {
                             onChange={handleChange}
                             placeholder="Enter your email"
                             required
+                            className={errors.email ? 'input-error' : ''}
                         />
+                        {errors.email && <p className="field-error">{errors.email}</p>}
                     </div>
 
                     <div className="form-group">
@@ -112,7 +146,17 @@ const Signup = ({ onSwitchToLogin }) => {
                             onChange={handleChange}
                             placeholder="Enter your password"
                             required
+                            className={errors.password ? 'input-error' : ''}
                         />
+                        {errors.password && <p className="field-error">{errors.password}</p>}
+                        <div className="password-checklist">
+                            {passwordChecks.map((item) => (
+                                <div key={item.label} className={`password-check ${item.passed ? 'passed' : ''}`}>
+                                    <span>{item.passed ? 'OK' : 'NO'}</span>
+                                    <span>{item.label}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="form-group">
@@ -125,7 +169,9 @@ const Signup = ({ onSwitchToLogin }) => {
                             onChange={handleChange}
                             placeholder="Confirm your password"
                             required
+                            className={errors.confirmPassword ? 'input-error' : ''}
                         />
+                        {errors.confirmPassword && <p className="field-error">{errors.confirmPassword}</p>}
                     </div>
 
                     <button 
