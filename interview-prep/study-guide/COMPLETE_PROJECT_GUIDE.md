@@ -2,7 +2,7 @@
 
 ## 📌 Project Overview
 
-**Employee HR Platform** is a full-stack web application built with the **MERN stack** that streamlines HR operations. It allows administrators to manage employee data, track leave, monitor attendance, manage payroll, and broadcast company announcements. The platform emphasizes security (JWT authentication), scalability, and user-friendly interface.
+**Employee HR Platform** is a full-stack web application built with the **MERN stack** that streamlines HR operations. It allows admin to manage employee data, track leave, monitor attendance, manage payroll, and broadcast company announcements. The platform emphasizes security (JWT authentication), scalability, and user-friendly interface.
 
 ---
 
