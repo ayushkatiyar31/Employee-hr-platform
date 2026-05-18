@@ -20,6 +20,7 @@
 - **MongoDB** - NoSQL database
 - **Mongoose 8.18** - ODM (Object Data Mapping)
 
+
 ### Security & Utilities
 - **JWT (jsonwebtoken)** - Token-based authentication
 - **bcryptjs** - Password hashing
